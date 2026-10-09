@@ -190,9 +190,9 @@ Open `http://localhost:8501` in your browser.
 ## 5. Critical Domain Disclosures & Limitations
 
 1. **Software Digital Twin Replica:** TwinState is a software representation computed from historical ASHRAE GEPIII time-series data, ML forecasts, and impact models. It is not connected to physical building actuators or live IoT telemetry.
-2. **Occupancy Proxy (`occupancy_proxy`):** This feature is strictly an engineered mathematical heuristic ($\text{is\_business\_hours} \times \text{rolling\_mean\_6hr}$), not sensor-measured room headcount.
+2. **Occupancy Proxy (`occupancy_proxy`):** This feature is strictly an engineered mathematical heuristic (`occupancy_proxy = is_business_hours × rolling_mean_6hr`), not sensor-measured room headcount.
 3. **Model Attribution vs Causality:** Local SHAP explanations represent mathematical model feature weighting for a LightGBM prediction and do not prove physical causality in the building.
-4. **Tariff and Carbon Assumptions:** Cost (₹8.0/kWh) and carbon ($0.70\text{ kg CO}_2\text{e/kWh}$) are configurable demonstration parameters, not measured real-time grid emissions.
+4. **Tariff and Carbon Assumptions:** Cost (₹8.0/kWh) and carbon (0.70 kg CO₂e/kWh) are configurable demonstration parameters, not measured real-time grid emissions.
 5. **Isolation Forest Training Scope:** The artifact `twinergy_isoforest.pkl` was trained exclusively on `Building 20`. Multi-building anomaly detection is performed via the contextual residual engine (`EnergyAnomalyAnalyzer`).
 
 ---

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Union
 
 import numpy as np
@@ -83,7 +83,7 @@ class TwinState:
     weather_source: Optional[str] = None
     state_status: str = "UNAVAILABLE"
     generated_at: str = field(
-        default_factory=lambda: datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        default_factory=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     )
 
     def __post_init__(self):

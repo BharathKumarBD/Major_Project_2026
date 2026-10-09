@@ -23,7 +23,14 @@ from src.models.impact import (
     load_impact_calculator,
 )
 
-VALID_SCENARIO_TYPES = {"ENERGY_MULTIPLIER", "ENERGY_REDUCTION", "FIXED_KWH_ADDITION"}
+VALID_SCENARIO_TYPES = {
+    "ENERGY_MULTIPLIER",
+    "ENERGY_REDUCTION",
+    "FIXED_KWH_ADDITION",
+    "OCCUPANCY_CHANGE",
+    "TEMPERATURE_CHANGE",
+    "EFFICIENCY_MULTIPLIER",
+}
 
 
 class EnergySimulationEngine:
@@ -124,6 +131,41 @@ class EnergySimulationEngine:
                 raise ValueError(
                     f"FIXED_KWH_ADDITION of {val} resulted in negative energy consumption."
                 )
+
+        elif scenario_type == "EFFICIENCY_MULTIPLIER":
+            if val <= 0.0 or val > 2.0:
+                raise ValueError(f"EFFICIENCY_MULTIPLIER must be in range (0, 2.0], got {val}")
+            simulated_kwh = baseline_kwh * val
+
+        elif scenario_type == "OCCUPANCY_CHANGE":
+            # val is occupancy change factor (e.g. +0.20 for +20%, -0.20 for -20%)
+            if val < -0.90 or val > 2.0:
+                raise ValueError(f"OCCUPANCY_CHANGE fraction must be in range [-0.90, 2.0], got {val}")
+            
+            # If occupancy proxy or is_business_hours exists in forecast_df, use it
+            if "is_business_hours" in out_df.columns:
+                occ_mask = out_df["is_business_hours"].values.astype(float)
+            elif "occupancy_proxy" in out_df.columns:
+                occ_mask = (out_df["occupancy_proxy"].values > 0).astype(float)
+            else:
+                # Default heuristic: weekday daytime hours (08:00 to 18:00)
+                ts = pd.to_datetime(out_df["timestamp"])
+                occ_mask = ((ts.dt.dayofweek < 5) & (ts.dt.hour >= 8) & (ts.dt.hour < 18)).astype(float).values
+
+            # Modulate baseline energy by occupancy shift during active hours (assuming ~40% occupancy sensitivity)
+            occupancy_sensitivity = 0.40
+            multiplier = 1.0 + (val * occupancy_sensitivity * occ_mask)
+            simulated_kwh = baseline_kwh * multiplier
+
+        elif scenario_type == "TEMPERATURE_CHANGE":
+            # val is delta temperature in Celsius (e.g. +3.0°C, -2.0°C)
+            if val < -15.0 or val > 15.0:
+                raise ValueError(f"TEMPERATURE_CHANGE delta must be in range [-15.0, 15.0] °C, got {val}")
+            
+            # Temperature sensitivity: ~2.5% energy increase per +1°C (HVAC cooling load heuristic)
+            temp_sensitivity = 0.025
+            multiplier = np.clip(1.0 + (val * temp_sensitivity), 0.1, 3.0)
+            simulated_kwh = baseline_kwh * multiplier
 
         # Delta calculations
         delta_kwh = simulated_kwh - baseline_kwh

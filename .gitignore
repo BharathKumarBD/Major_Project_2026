@@ -1,1 +1,6 @@
 twinergy_clean.csv
+twinergy_clean.parquet
+*.parquet
+__pycache__/
+.DS_Store
+*.pyc

@@ -261,6 +261,58 @@ def test_nan_and_infinity_rejection():
         assert "nan" in str(e).lower()
 
 
+def test_occupancy_change_scenario():
+    """Verify OCCUPANCY_CHANGE modulates baseline energy during active business hours."""
+    engine = load_simulation_engine()
+    df_fc = _create_sample_forecast_df()
+    
+    res = engine.simulate(df_fc, scenario_type="OCCUPANCY_CHANGE", value=0.20)
+    assert res["scenario_type"] == "OCCUPANCY_CHANGE"
+    assert res["scenario_value"] == 0.20
+    assert res["simulated_total_kwh"] >= res["baseline_total_kwh"]
+    assert res["delta_total_kwh"] >= 0.0
+
+    # Test out-of-range rejection
+    try:
+        engine.simulate(df_fc, scenario_type="OCCUPANCY_CHANGE", value=-0.95)
+        assert False, "Should reject occupancy change < -0.90"
+    except ValueError as e:
+        assert "range" in str(e).lower()
+
+
+def test_temperature_change_scenario():
+    """Verify TEMPERATURE_CHANGE applies temperature sensitivity delta."""
+    engine = load_simulation_engine()
+    df_fc = _create_sample_forecast_df()
+
+    # +3°C temperature shift -> ~7.5% increase
+    res_pos = engine.simulate(df_fc, scenario_type="TEMPERATURE_CHANGE", value=3.0)
+    assert res_pos["delta_total_kwh"] > 0.0
+    np.testing.assert_allclose(res_pos["delta_total_percent"], 3.0 * 2.5)
+
+    # -2°C temperature shift -> ~5.0% decrease
+    res_neg = engine.simulate(df_fc, scenario_type="TEMPERATURE_CHANGE", value=-2.0)
+    assert res_neg["delta_total_kwh"] < 0.0
+    np.testing.assert_allclose(res_neg["delta_total_percent"], -2.0 * 2.5)
+
+    # Out of bounds rejection
+    try:
+        engine.simulate(df_fc, scenario_type="TEMPERATURE_CHANGE", value=20.0)
+        assert False, "Should reject temperature delta > 15°C"
+    except ValueError as e:
+        assert "range" in str(e).lower()
+
+
+def test_efficiency_multiplier_scenario():
+    """Verify EFFICIENCY_MULTIPLIER applies scaling factor."""
+    engine = load_simulation_engine()
+    df_fc = _create_sample_forecast_df()
+
+    res = engine.simulate(df_fc, scenario_type="EFFICIENCY_MULTIPLIER", value=0.85)
+    np.testing.assert_allclose(res["simulated_total_kwh"], res["baseline_total_kwh"] * 0.85)
+    np.testing.assert_allclose(res["delta_total_percent"], -15.0)
+
+
 if __name__ == "__main__":
     print("Running test_multiplier_scenario...")
     test_multiplier_scenario()

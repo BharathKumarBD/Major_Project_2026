@@ -115,8 +115,8 @@
 2. **Missing Weather Imputation:**
    - Four core weather features (`air_temperature`, `dew_temperature`, `wind_speed`, `sea_level_pressure`) were grouped by `site_id` and filled via forward-fill followed by backward-fill (`transform(lambda x: x.ffill().bfill())`).
    - `cloud_coverage`, `precip_depth_1_hr`, and `wind_direction` were intentionally left unfilled as they are not consumed by the trained models.
-3. **Outlier Filtering:**
-   - Non-positive readings (`meter_reading <= 0`) were dropped.
+3. **Outlier & Zero Filtering:**
+   - Non-positive readings (`meter_reading <= 0`) were dropped. In the ASHRAE GEPIII dataset, Site 0 meters (Building IDs 0 to 104) had an unmetered sensor dropout logging constant `0.0` from January 1 to May 20, 2016 before meter activation on May 21, 2016. Dropping non-positive readings prevents corrupted lag features and false zero-load baselines.
    - Extreme physical outliers above the 99.9th percentile (`quantile(0.999)`) computed per meter type were removed.
 4. **Lag Feature Construction:**
    - Grouped by `['building_id', 'meter']` and shifted chronologically:

@@ -12,6 +12,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Union
 
+# Add project root to sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import numpy as np
 import pandas as pd
 
@@ -56,14 +59,14 @@ class ValidationSuiteResult:
     def print_report(self) -> None:
         """Print a formatted validation report to stdout."""
         print("=" * 70)
-        print("       TWINERGY 2.0 — DATA FOUNDATION VALIDATION REPORT")
+        print("       TWINERGY 2.0 -- DATA FOUNDATION VALIDATION REPORT")
         print("=" * 70)
         print(f"Target Dataset : {self.dataset_path}")
-        print(f"Overall Status : {'✅ PASSED' if self.passed else '❌ FAILED'}")
+        print(f"Overall Status : {'[PASS] PASSED' if self.passed else '[FAIL] FAILED'}")
         print("-" * 70)
         for r in self.results:
-            icon = "✅ PASS" if r.passed else "❌ FAIL"
-            print(f"[{icon}] {r.name:32s}: {r.message}")
+            icon = "[PASS]" if r.passed else "[FAIL]"
+            print(f"{icon} {r.name:32s}: {r.message}")
             if not r.passed and r.details:
                 print(f"       Details: {r.details}")
         print("=" * 70)

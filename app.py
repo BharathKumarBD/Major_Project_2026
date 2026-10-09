@@ -15,6 +15,7 @@ from src.models.explainability import load_explainer
 from src.models.impact import EnergyImpactCalculator, load_impact_calculator
 from src.models.twin_state import TwinStateBuilder, build_twin_state
 from src.models.simulation import EnergySimulationEngine, load_simulation_engine
+from src.models.recommendations import RecommendationEngine, load_recommendation_engine
 
 FEATURES = LIGHTGBM_FEATURES
 
@@ -125,6 +126,10 @@ def get_twin_state_builder():
 def get_simulation_engine():
     return EnergySimulationEngine()
 
+@st.cache_resource
+def get_recommendation_engine():
+    return RecommendationEngine()
+
 loader             = get_data_loader()
 forecaster         = get_forecaster()
 analyzer           = get_anomaly_analyzer()
@@ -133,6 +138,7 @@ explainer          = get_explainer()
 impact_calc        = get_impact_calculator()
 twin_state_builder = get_twin_state_builder()
 sim_engine         = get_simulation_engine()
+rec_engine         = get_recommendation_engine()
 
 # ─────────────────────────────────────────
 # SIDEBAR
@@ -700,6 +706,7 @@ st.caption(
     "Simulate controlled changes to the existing 24-hour energy forecast without retraining or rerunning the forecasting model."
 )
 
+sim_res = None
 if forecast_24h_df is not None and len(forecast_24h_df) > 0:
     sim_col_sel, sim_col_val = st.columns([1.2, 1.0])
 
@@ -881,6 +888,67 @@ if forecast_24h_df is not None and len(forecast_24h_df) > 0:
 
 else:
     st.warning("⚠️ **What-If Simulation Unavailable:** A valid 24-hour energy forecast is required.")
+
+# ─────────────────────────────────────────
+# PANEL 2F — ENERGY RECOMMENDATIONS
+# ─────────────────────────────────────────
+st.markdown("---")
+st.markdown("<div class='section-title'>💡 Energy Recommendations</div>", unsafe_allow_html=True)
+st.caption(
+    "Deterministic recommendations generated from the building's current Twin State, anomaly signals, "
+    "forecast impact, and optional scenario results."
+)
+
+if twin_state is not None:
+    try:
+        rec_output = rec_engine.recommend(
+            twin_state=twin_state,
+            simulation_result=sim_res if (sim_res is not None) else None,
+        )
+        recommendations = rec_output.get("recommendations", [])
+        gen_at = rec_output.get("generated_at", "N/A")
+
+        st.caption(f"⏱️ **Recommendations Generated At (Software Timestamp):** `{gen_at}`")
+
+        if len(recommendations) == 0:
+            st.info("ℹ️ No recommendations available for the current state.")
+        else:
+            # Display recommendations in the exact priority order returned by engine
+            for rec in recommendations:
+                prio  = str(rec.get("priority", "INFO")).upper()
+                cat   = rec.get("category", "ENERGY")
+                title = rec.get("title", "")
+                act   = rec.get("action", "")
+                rsn   = rec.get("reason", "")
+                evid  = rec.get("evidence", "")
+                rid   = rec.get("recommendation_id", "")
+
+                if prio == "CRITICAL":
+                    css = "alert-high"
+                    icon = "🔴"
+                elif prio == "HIGH":
+                    css = "alert-medium"
+                    icon = "🟠"
+                elif prio in ("MEDIUM", "LOW"):
+                    css = "alert-low"
+                    icon = "🟡" if prio == "MEDIUM" else "🔵"
+                else:  # INFO
+                    css = "alert-low"
+                    icon = "🟢"
+
+                st.markdown(
+                    f"""<div class='{css}'>
+                        <div>{icon} <b>[{rid}] {title}</b> &nbsp;|&nbsp; <b>Priority: {prio}</b> &nbsp;|&nbsp; <b>Category: {cat}</b></div>
+                        <div style='font-size:0.9rem;margin-top:6px;'><b>Recommended Action:</b> {act}</div>
+                        <div style='font-size:0.85rem;margin-top:4px;'><b>Reason:</b> {rsn}</div>
+                        <div style='font-size:0.80rem;color:#cbd5e1;margin-top:4px;'><i>Evidence:</i> {evid}</div>
+                    </div>""",
+                    unsafe_allow_html=True
+                )
+    except Exception as exc:
+        st.error(f"⚠️ **Recommendation Generation Error:** {exc}")
+else:
+    st.warning("⚠️ **Energy Recommendations Unavailable:** Building Twin State is required.")
 
 # ─────────────────────────────────────────
 # PANEL 3 — ANOMALY ALERTS + HOURLY PATTERN

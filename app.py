@@ -13,6 +13,8 @@ from src.models.forecasting import load_forecaster
 from src.models.anomaly import load_anomaly_detector, load_anomaly_analyzer
 from src.models.explainability import load_explainer
 from src.models.impact import EnergyImpactCalculator, load_impact_calculator
+from src.models.twin_state import TwinStateBuilder, build_twin_state
+from src.models.simulation import EnergySimulationEngine, load_simulation_engine
 
 FEATURES = LIGHTGBM_FEATURES
 
@@ -115,12 +117,22 @@ def get_explainer():
 def get_impact_calculator():
     return EnergyImpactCalculator()
 
-loader      = get_data_loader()
-forecaster  = get_forecaster()
-analyzer    = get_anomaly_analyzer()
-detector    = get_anomaly_detector()
-explainer   = get_explainer()
-impact_calc = get_impact_calculator()
+@st.cache_resource
+def get_twin_state_builder():
+    return TwinStateBuilder()
+
+@st.cache_resource
+def get_simulation_engine():
+    return EnergySimulationEngine()
+
+loader             = get_data_loader()
+forecaster         = get_forecaster()
+analyzer           = get_anomaly_analyzer()
+detector           = get_anomaly_detector()
+explainer          = get_explainer()
+impact_calc        = get_impact_calculator()
+twin_state_builder = get_twin_state_builder()
+sim_engine         = get_simulation_engine()
 
 # ─────────────────────────────────────────
 # SIDEBAR
@@ -412,6 +424,7 @@ if forecast_24h_df is not None and len(forecast_24h_df) > 0:
 st.markdown("---")
 st.markdown("<div class='section-title'>💰 Cost & Carbon Impact</div>", unsafe_allow_html=True)
 
+impact = None
 if forecast_24h_df is not None and len(forecast_24h_df) > 0:
     try:
         impact = impact_calc.calculate_impact(forecast_24h_df)
@@ -554,6 +567,320 @@ if forecast_24h_df is not None and len(forecast_24h_df) > 0:
         st.warning(f"⚠️ **Cost & Carbon Impact Forecast Unavailable:** A valid 24-hour energy forecast is required ({exc}).")
 else:
     st.warning("⚠️ **Cost & Carbon Impact Forecast Unavailable:** A valid 24-hour energy forecast is required.")
+
+# ─────────────────────────────────────────
+# PANEL 2D — BUILDING TWIN STATE
+# ─────────────────────────────────────────
+st.markdown("---")
+st.markdown("<div class='section-title'>🏢 Building Twin State</div>", unsafe_allow_html=True)
+st.caption(
+    "Current software representation of the selected building's energy state based on the available "
+    "historical data, forecasts, anomaly analysis, and impact calculations."
+)
+
+# Reference timestamp for TwinState
+if len(b_month_clean) > 0:
+    ref_ts = b_month_clean['timestamp'].iloc[-1]
+elif len(b_month) > 0:
+    ref_ts = b_month['timestamp'].max()
+else:
+    ref_ts = pd.Timestamp.now()
+
+# Build TwinState using existing computed service outputs
+try:
+    twin_state = twin_state_builder.build(
+        building_id=selected_building,
+        timestamp=ref_ts,
+        meter=0,
+        anomaly_analysis=b_month_anom if len(b_month_anom) > 0 else None,
+        forecast_df=forecast_24h_df if (forecast_24h_df is not None and len(forecast_24h_df) > 0) else None,
+        impact_dict=impact if impact is not None else None,
+    )
+except Exception as exc:
+    st.warning(f"⚠️ **Building Twin State Construction Error:** {exc}")
+    twin_state = None
+
+if twin_state is not None:
+    # 1. State Status Banner
+    status = twin_state.state_status
+    if status == "NORMAL":
+        status_color = "#16a34a"
+        status_bg = "#052e16"
+        status_icon = "🟢"
+    elif status == "WARNING":
+        status_color = "#f97316"
+        status_bg = "#431407"
+        status_icon = "🟡"
+    elif status == "CRITICAL":
+        status_color = "#dc2626"
+        status_bg = "#450a0a"
+        status_icon = "🔴"
+    else:
+        status_color = "#94a3b8"
+        status_bg = "#1e293b"
+        status_icon = "⚪"
+
+    ref_ts_fmt = twin_state.timestamp.strftime("%Y-%m-%d %H:%M") if twin_state.timestamp is not None else "N/A"
+    gen_at_fmt = twin_state.generated_at if twin_state.generated_at else "N/A"
+
+    st.markdown(
+        f"""<div style='background-color:{status_bg};border-left:4px solid {status_color};padding:14px;border-radius:8px;margin-bottom:16px;'>
+            <div style='font-size:1.15rem;font-weight:700;color:{status_color};'>
+                {status_icon} Twin State Status: {status}
+            </div>
+            <div style='font-size:0.85rem;color:#cbd5e1;margin-top:6px;'>
+                <b>Reference Timestamp (Software State):</b> {ref_ts_fmt} &nbsp;|&nbsp; 
+                <b>State Generated At:</b> {gen_at_fmt}
+            </div>
+        </div>""",
+        unsafe_allow_html=True
+    )
+
+    # 2. State Overview Columns
+    ts_col1, ts_col2, ts_col3 = st.columns(3)
+
+    with ts_col1:
+        st.markdown("#### ⚡ Current Energy State")
+        act_fmt = f"{twin_state.actual_kwh:.2f} kWh" if twin_state.actual_kwh is not None else "N/A"
+        exp_fmt = f"{twin_state.expected_kwh:.2f} kWh" if twin_state.expected_kwh is not None else "N/A"
+        res_fmt = f"{twin_state.residual_kwh:+.2f} kWh" if twin_state.residual_kwh is not None else "N/A"
+        dev_fmt = f"{twin_state.deviation_ratio * 100.0:+.1f}%" if twin_state.deviation_ratio is not None else "N/A"
+        sev_fmt = twin_state.severity if twin_state.severity is not None else "N/A"
+        typ_fmt = twin_state.anomaly_type if twin_state.anomaly_type is not None else "N/A"
+
+        st.markdown(
+            f"• **Actual Energy:** `{act_fmt}`\n\n"
+            f"• **Expected Energy:** `{exp_fmt}`\n\n"
+            f"• **Residual:** `{res_fmt}`\n\n"
+            f"• **Relative Deviation:** `{dev_fmt}`\n\n"
+            f"• **Severity:** `{sev_fmt}`\n\n"
+            f"• **Anomaly Type:** `{typ_fmt}`"
+        )
+
+    with ts_col2:
+        st.markdown("#### 🔮 Forecast State")
+        hor_fmt = f"{twin_state.forecast_horizon_hours} hours" if twin_state.forecast_horizon_hours is not None else "N/A"
+        tot_kwh_fmt = f"{twin_state.forecast_total_kwh:,.2f} kWh" if twin_state.forecast_total_kwh is not None else "N/A"
+        peak_kwh_fmt = f"{twin_state.forecast_peak_kwh:.2f} kWh" if twin_state.forecast_peak_kwh is not None else "N/A"
+        peak_ts_fmt = twin_state.forecast_peak_hour.strftime("%H:%M (%d %b)") if twin_state.forecast_peak_hour is not None else "N/A"
+        w_src_fmt = twin_state.weather_source if twin_state.weather_source is not None else "N/A"
+
+        st.markdown(
+            f"• **Forecast Horizon:** `{hor_fmt}`\n\n"
+            f"• **Next 24h Energy:** `{tot_kwh_fmt}`\n\n"
+            f"• **Forecast Peak:** `{peak_kwh_fmt}`\n\n"
+            f"• **Forecast Peak Hour:** `{peak_ts_fmt}`\n\n"
+            f"• **Weather Source:** `{w_src_fmt}`"
+        )
+
+    with ts_col3:
+        st.markdown("#### 💰 Impact State")
+        cost_fmt = f"₹{twin_state.forecast_total_cost:,.2f}" if twin_state.forecast_total_cost is not None else "N/A"
+        carbon_fmt = f"{twin_state.forecast_total_carbon_kg:,.2f} kg CO₂e" if twin_state.forecast_total_carbon_kg is not None else "N/A"
+
+        st.markdown(
+            f"• **Forecast Cost:** `{cost_fmt}`\n\n"
+            f"• **Forecast Carbon:** `{carbon_fmt}`\n\n"
+            f"• **Building ID:** `{twin_state.building_id}`\n\n"
+            f"• **Meter ID:** `{twin_state.meter}`"
+        )
+
+    if twin_state.classification_reason:
+        st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+        st.info(f"ℹ️ **Classification Reason:** {twin_state.classification_reason}")
+else:
+    st.warning("⚠️ **Building Twin State Unavailable:** Unable to aggregate building state.")
+
+# ─────────────────────────────────────────
+# PANEL 2E — WHAT-IF ENERGY SIMULATION
+# ─────────────────────────────────────────
+st.markdown("---")
+st.markdown("<div class='section-title'>⚡ What-If Energy Simulation</div>", unsafe_allow_html=True)
+st.caption(
+    "Simulate controlled changes to the existing 24-hour energy forecast without retraining or rerunning the forecasting model."
+)
+
+if forecast_24h_df is not None and len(forecast_24h_df) > 0:
+    sim_col_sel, sim_col_val = st.columns([1.2, 1.0])
+
+    with sim_col_sel:
+        scenario_map = {
+            "ENERGY_MULTIPLIER": "Energy Multiplier (e.g. 1.10 = +10% demand)",
+            "ENERGY_REDUCTION": "Energy Reduction (e.g. 0.10 = 10% reduction)",
+            "FIXED_KWH_ADDITION": "Fixed kWh Addition (e.g. +5.0 kWh/hour)",
+        }
+        selected_scenario_key = st.selectbox(
+            "Select Scenario Type",
+            options=list(scenario_map.keys()),
+            format_func=lambda x: scenario_map[x],
+            index=0,
+        )
+
+    with sim_col_val:
+        if selected_scenario_key == "ENERGY_MULTIPLIER":
+            sim_value = st.number_input(
+                "Multiplier Factor (e.g., 1.10 for +10%)",
+                min_value=0.01,
+                max_value=3.00,
+                value=1.10,
+                step=0.05,
+                format="%.2f",
+            )
+            scenario_desc = f"+{(sim_value - 1.0) * 100.0:+.1f}% Energy Demand (Factor: {sim_value:.2f}x)" if sim_value >= 1.0 else f"{(sim_value - 1.0) * 100.0:.1f}% Energy Demand (Factor: {sim_value:.2f}x)"
+        elif selected_scenario_key == "ENERGY_REDUCTION":
+            sim_value = st.number_input(
+                "Reduction Fraction (e.g., 0.10 for 10% reduction)",
+                min_value=0.00,
+                max_value=0.99,
+                value=0.10,
+                step=0.05,
+                format="%.2f",
+            )
+            scenario_desc = f"{sim_value * 100.0:.1f}% Energy Reduction (Factor: {1.0 - sim_value:.2f}x)"
+        else:  # FIXED_KWH_ADDITION
+            sim_value = st.number_input(
+                "Fixed kWh Addition per hour (e.g., +5.0 kWh)",
+                min_value=-50.0,
+                max_value=200.0,
+                value=5.0,
+                step=1.0,
+                format="%.1f",
+            )
+            scenario_desc = f"{sim_value:+.1f} kWh/hour Fixed Addition"
+
+    try:
+        sim_res = sim_engine.simulate(
+            forecast_df=forecast_24h_df,
+            scenario_type=selected_scenario_key,
+            value=sim_value,
+        )
+
+        st.info(
+            f"🎯 **Active Scenario:** `{scenario_desc}`\n\n"
+            f"ℹ️ *Simulation results are scenario estimates based on the existing 24-hour forecast.*"
+        )
+
+        # 1. Energy KPI Summary Cards
+        sim_m1, sim_m2, sim_m3, sim_m4 = st.columns(4)
+
+        with sim_m1:
+            st.markdown(f"""<div class='metric-card'>
+                <div class='metric-value'>{sim_res['baseline_total_kwh']:,.1f}</div>
+                <div class='metric-label'>Baseline 24h Energy</div>
+                <div style='color:#93c5fd;font-size:0.75rem;margin-top:4px'>kWh</div>
+            </div>""", unsafe_allow_html=True)
+
+        with sim_m2:
+            st.markdown(f"""<div class='metric-card'>
+                <div class='metric-value' style='color:#38bdf8'>{sim_res['simulated_total_kwh']:,.1f}</div>
+                <div class='metric-label'>Simulated 24h Energy</div>
+                <div style='color:#38bdf8;font-size:0.75rem;margin-top:4px'>kWh</div>
+            </div>""", unsafe_allow_html=True)
+
+        with sim_m3:
+            delta_e_color = "#f97316" if sim_res["delta_total_kwh"] > 0 else "#86efac"
+            st.markdown(f"""<div class='metric-card'>
+                <div class='metric-value' style='color:{delta_e_color}'>{sim_res['delta_total_kwh']:+,.1f}</div>
+                <div class='metric-label'>Change in Energy</div>
+                <div style='color:{delta_e_color};font-size:0.75rem;margin-top:4px'>kWh ({sim_res['delta_total_percent']:+.1f}%)</div>
+            </div>""", unsafe_allow_html=True)
+
+        with sim_m4:
+            peak_b_ts = sim_res["baseline_peak_hour"].strftime("%H:%M") if sim_res["baseline_peak_hour"] is not None else "N/A"
+            peak_s_ts = sim_res["simulated_peak_hour"].strftime("%H:%M") if sim_res["simulated_peak_hour"] is not None else "N/A"
+            st.markdown(f"""<div class='metric-card'>
+                <div class='metric-value' style='font-size:1.3rem;padding-top:6px'>{sim_res['simulated_peak_kwh']:.1f} kWh</div>
+                <div class='metric-label'>Simulated Peak (at {peak_s_ts})</div>
+                <div style='color:#fbbf24;font-size:0.75rem;margin-top:4px'>Baseline Peak: {sim_res['baseline_peak_kwh']:.1f} kWh ({peak_b_ts})</div>
+            </div>""", unsafe_allow_html=True)
+
+        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+
+        # 2. Cost & Carbon Summary Cards
+        cost_c1, cost_c2, cost_c3, carb_c1, carb_c2, carb_c3 = st.columns(6)
+
+        with cost_c1:
+            st.caption("Baseline Cost")
+            st.markdown(f"**₹{sim_res['baseline_total_cost']:,.2f}**")
+
+        with cost_c2:
+            st.caption("Simulated Cost")
+            st.markdown(f"**₹{sim_res['simulated_total_cost']:,.2f}**")
+
+        with cost_c3:
+            st.caption("Change in Cost")
+            c_delta_color = "#f97316" if sim_res["delta_total_cost"] > 0 else "#86efac"
+            st.markdown(f"<span style='color:{c_delta_color};font-weight:700;'>₹{sim_res['delta_total_cost']:+,.2f}</span>", unsafe_allow_html=True)
+
+        with carb_c1:
+            st.caption("Baseline Carbon")
+            st.markdown(f"**{sim_res['baseline_total_carbon_kg']:,.2f} kg**")
+
+        with carb_c2:
+            st.caption("Simulated Carbon")
+            st.markdown(f"**{sim_res['simulated_total_carbon_kg']:,.2f} kg**")
+
+        with carb_c3:
+            st.caption("Change in Carbon")
+            cb_delta_color = "#f97316" if sim_res["delta_total_carbon_kg"] > 0 else "#86efac"
+            st.markdown(f"<span style='color:{cb_delta_color};font-weight:700;'>{sim_res['delta_total_carbon_kg']:+,.2f} kg</span>", unsafe_allow_html=True)
+
+        st.markdown("<div style='height: 14px;'></div>", unsafe_allow_html=True)
+
+        # 3. Chart & Table Side-by-Side
+        sim_chart_col, sim_table_col = st.columns([1.35, 1.0])
+        hourly_sim_df = sim_res["hourly_df"]
+
+        with sim_chart_col:
+            st.caption("📈 **Hourly Forecast Comparison** (Baseline kWh vs Simulated kWh)")
+            fig_sim = go.Figure()
+            fig_sim.add_trace(go.Scatter(
+                x=hourly_sim_df["timestamp"],
+                y=hourly_sim_df["baseline_kwh"],
+                mode="lines",
+                name="Baseline kWh",
+                line=dict(color="#94a3b8", width=2, dash="dash"),
+                hovertemplate="<b>Timestamp:</b> %{x|%Y-%m-%d %H:%M}<br><b>Baseline:</b> %{y:.2f} kWh<extra></extra>",
+            ))
+            fig_sim.add_trace(go.Scatter(
+                x=hourly_sim_df["timestamp"],
+                y=hourly_sim_df["simulated_kwh"],
+                mode="lines+markers",
+                name="Simulated kWh",
+                line=dict(color="#38bdf8", width=2.5),
+                marker=dict(size=5),
+                hovertemplate="<b>Timestamp:</b> %{x|%Y-%m-%d %H:%M}<br><b>Simulated:</b> %{y:.2f} kWh<extra></extra>",
+            ))
+            fig_sim.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(15,23,42,0.8)",
+                height=320,
+                margin=dict(l=10, r=10, t=15, b=10),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                xaxis=dict(title="Timestamp", gridcolor="#1e3a5f"),
+                yaxis=dict(title="Energy Demand (kWh)", gridcolor="#1e3a5f"),
+            )
+            st.plotly_chart(fig_sim, use_container_width=True)
+
+        with sim_table_col:
+            st.caption("📋 **Hourly Simulation Trajectory**")
+            display_sim_df = pd.DataFrame({
+                "Timestamp": hourly_sim_df["timestamp"].dt.strftime("%d %b %H:%M"),
+                "Baseline (kWh)": hourly_sim_df["baseline_kwh"].round(2),
+                "Simulated (kWh)": hourly_sim_df["simulated_kwh"].round(2),
+                "Delta (kWh)": hourly_sim_df["delta_kwh"].round(2),
+                "Change (%)": hourly_sim_df["delta_percent"].round(1),
+            })
+            st.dataframe(display_sim_df, use_container_width=True, height=295, hide_index=True)
+
+    except ValueError as val_err:
+        st.error(f"⚠️ **Simulation Parameter Error:** {val_err}")
+    except Exception as exc:
+        st.error(f"⚠️ **Simulation Failed:** {exc}")
+
+else:
+    st.warning("⚠️ **What-If Simulation Unavailable:** A valid 24-hour energy forecast is required.")
 
 # ─────────────────────────────────────────
 # PANEL 3 — ANOMALY ALERTS + HOURLY PATTERN

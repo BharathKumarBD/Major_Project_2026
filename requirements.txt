@@ -9,3 +9,8 @@ seaborn
 plotly
 duckdb
 pyarrow
+fastapi
+uvicorn
+pydantic
+httpx
+pytest

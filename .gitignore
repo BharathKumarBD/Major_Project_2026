@@ -4,3 +4,7 @@ twinergy_clean.parquet
 __pycache__/
 .DS_Store
 *.pyc
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local

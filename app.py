@@ -141,6 +141,14 @@ sim_engine         = get_simulation_engine()
 rec_engine         = get_recommendation_engine()
 
 # ─────────────────────────────────────────
+# ─────────────────────────────────────────
+# DATA ACCESS HELPER
+# ─────────────────────────────────────────
+@st.cache_data
+def get_building_data(b_id: int):
+    return loader.load(building_id=b_id, meter=0)
+
+# ─────────────────────────────────────────
 # SIDEBAR
 # ─────────────────────────────────────────
 with st.sidebar:
@@ -169,8 +177,26 @@ with st.sidebar:
         'May':5,'June':6,'July':7,'August':8,
         'September':9,'October':10,'November':11,'December':12
     }
-    selected_month = st.selectbox("Month", list(month_map.keys()), index=4)
+    month_names_list = list(month_map.keys())
+
+    # Pre-fetch building data to determine available observation months
+    b_df = get_building_data(selected_building)
+    available_month_nums = sorted(b_df['timestamp'].dt.month.unique().tolist()) if len(b_df) > 0 else []
+
+    # Default to May (month 5) if available, otherwise first available month
+    if 5 in available_month_nums:
+        default_idx = 4
+    elif len(available_month_nums) > 0:
+        default_idx = available_month_nums[0] - 1
+    else:
+        default_idx = 0
+
+    selected_month = st.selectbox("Month", month_names_list, index=default_idx)
     month_num = month_map[selected_month]
+
+    if month_num not in available_month_nums:
+        avail_names = [month_names_list[m - 1] for m in available_month_nums]
+        st.warning(f"⚠️ No recorded observations for {selected_month} (Available: {avail_names[0]}–{avail_names[-1]})" if len(avail_names) >= 2 else "⚠️ No recorded observations for this month.")
 
     st.markdown("---")
     st.caption("ASHRAE GEPIII Dataset")
@@ -181,11 +207,6 @@ with st.sidebar:
 # ─────────────────────────────────────────
 # FILTER DATA
 # ─────────────────────────────────────────
-@st.cache_data
-def get_building_data(b_id: int):
-    return loader.load(building_id=b_id, meter=0)
-
-b_df = get_building_data(selected_building)
 b_month = b_df[b_df['timestamp'].dt.month == month_num].copy()
 
 # Predictions (via EnergyForecaster)
@@ -218,15 +239,15 @@ st.markdown("---")
 # ─────────────────────────────────────────
 # PANEL 1 — KPI METRICS
 # ─────────────────────────────────────────
-col1, col2, col3, col4, col5 = st.columns(5)
-
 if len(b_month_clean) > 0:
+    col1, col2, col3, col4, col5 = st.columns(5)
     current_kwh   = b_month_clean['actual'].iloc[-1]
     predicted_kwh = b_month_clean['predicted'].iloc[-1]
     avg_kwh       = b_month_clean['actual'].mean()
     total_kwh     = b_month_clean['actual'].sum()
     n_anomalies   = len(anomaly_events)
-    co2_kg        = total_kwh * 0.233  # avg kg CO2 per kWh
+    carbon_factor = impact_calc.carbon_intensity_kg_per_kwh
+    co2_kg        = total_kwh * carbon_factor  # Configured carbon intensity (kg CO2e / kWh)
 
     delta = ((current_kwh - predicted_kwh) / predicted_kwh) * 100
     delta_str = f"{'▲' if delta > 0 else '▼'} {abs(delta):.1f}% vs predicted"
@@ -264,8 +285,15 @@ if len(b_month_clean) > 0:
         st.markdown(f"""<div class='metric-card'>
             <div class='metric-value'>{co2_kg:,.0f}</div>
             <div class='metric-label'>CO₂ Estimate (kg)</div>
-            <div style='color:#93c5fd;font-size:0.75rem;margin-top:4px'>@0.233 kg/kWh</div>
+            <div style='color:#93c5fd;font-size:0.75rem;margin-top:4px'>@{carbon_factor:.2f} kg/kWh</div>
         </div>""", unsafe_allow_html=True)
+else:
+    avail_names = [month_names_list[m - 1] for m in available_month_nums]
+    avail_str = f"{avail_names[0]} through {avail_names[-1]}" if len(avail_names) >= 2 else (", ".join(avail_names) if avail_names else "None")
+    st.info(
+        f"ℹ️ **No Historical Observations for {selected_month} 2016:** Building `{selected_building}` has no recorded meter readings for {selected_month} in the ASHRAE GEPIII dataset. "
+        f"Available observation window for this building: **{avail_str}**."
+    )
 
 st.markdown("---")
 
@@ -277,13 +305,13 @@ st.markdown("<div class='section-title'>📈 Energy Forecast — Actual vs Predi
 if len(b_month_clean) > 0:
     fig = go.Figure()
 
-    # Confidence band
+    # Illustrative deviation band (+/- 15%)
     fig.add_trace(go.Scatter(
         x=pd.concat([b_month_clean['timestamp'], b_month_clean['timestamp'][::-1]]),
         y=pd.concat([b_month_clean['predicted'] * 1.15, (b_month_clean['predicted'] * 0.85)[::-1]]),
         fill='toself', fillcolor='rgba(37,99,235,0.12)',
         line=dict(color='rgba(255,255,255,0)'),
-        name='Confidence Band', hoverinfo='skip'
+        name='Nominal Range (±15%)', hoverinfo='skip'
     ))
 
     # Predicted
@@ -323,6 +351,10 @@ if len(b_month_clean) > 0:
         yaxis=dict(gridcolor='#1e3a5f', title='kWh')
     )
     st.plotly_chart(fig, use_container_width=True)
+else:
+    st.info(
+        f"ℹ️ **Forecast Chart Unavailable for {selected_month} 2016:** No historical meter observations exist for Building `{selected_building}` in {selected_month} to compare actual vs predicted demand."
+    )
 
 # ─────────────────────────────────────────
 # PANEL 2B — 24-HOUR ENERGY FORECAST
@@ -712,9 +744,12 @@ if forecast_24h_df is not None and len(forecast_24h_df) > 0:
 
     with sim_col_sel:
         scenario_map = {
-            "ENERGY_MULTIPLIER": "Energy Multiplier (e.g. 1.10 = +10% demand)",
-            "ENERGY_REDUCTION": "Energy Reduction (e.g. 0.10 = 10% reduction)",
-            "FIXED_KWH_ADDITION": "Fixed kWh Addition (e.g. +5.0 kWh/hour)",
+            "ENERGY_MULTIPLIER": "Energy Demand Multiplier (e.g. 1.10 = +10% demand)",
+            "ENERGY_REDUCTION": "Energy Conservation / Reduction (e.g. 0.10 = 10% reduction)",
+            "FIXED_KWH_ADDITION": "Fixed Base Load Addition (e.g. +5.0 kWh/hour)",
+            "OCCUPANCY_CHANGE": "Occupancy Shift (e.g. +0.20 = +20% occupancy impact during business hours)",
+            "TEMPERATURE_CHANGE": "Ambient Temperature Delta (e.g. +3.0°C cooling demand increase)",
+            "EFFICIENCY_MULTIPLIER": "Equipment Efficiency Upgrade (e.g. 0.85 = 15% efficiency improvement)",
         }
         selected_scenario_key = st.selectbox(
             "Select Scenario Type",
@@ -744,6 +779,36 @@ if forecast_24h_df is not None and len(forecast_24h_df) > 0:
                 format="%.2f",
             )
             scenario_desc = f"{sim_value * 100.0:.1f}% Energy Reduction (Factor: {1.0 - sim_value:.2f}x)"
+        elif selected_scenario_key == "OCCUPANCY_CHANGE":
+            sim_value = st.number_input(
+                "Occupancy Change Fraction (e.g., +0.20 for +20%, -0.20 for -20%)",
+                min_value=-0.90,
+                max_value=2.00,
+                value=0.20,
+                step=0.05,
+                format="%.2f",
+            )
+            scenario_desc = f"{sim_value * 100.0:+.1f}% Occupancy Impact during Business Hours"
+        elif selected_scenario_key == "TEMPERATURE_CHANGE":
+            sim_value = st.number_input(
+                "Temperature Delta in °C (e.g., +3.0°C, -2.0°C)",
+                min_value=-15.0,
+                max_value=15.0,
+                value=3.0,
+                step=0.5,
+                format="%.1f",
+            )
+            scenario_desc = f"{sim_value:+.1f}°C Temperature Shift Scenario"
+        elif selected_scenario_key == "EFFICIENCY_MULTIPLIER":
+            sim_value = st.number_input(
+                "Efficiency Multiplier (e.g., 0.85 for 15% efficiency gain)",
+                min_value=0.10,
+                max_value=1.50,
+                value=0.85,
+                step=0.05,
+                format="%.2f",
+            )
+            scenario_desc = f"{(1.0 - sim_value) * 100.0:+.1f}% Efficiency Improvement (Multiplier: {sim_value:.2f}x)"
         else:  # FIXED_KWH_ADDITION
             sim_value = st.number_input(
                 "Fixed kWh Addition per hour (e.g., +5.0 kWh)",
@@ -959,7 +1024,9 @@ with col_left:
     st.markdown("<div class='section-title'>🚨 Anomaly Alert Log</div>", unsafe_allow_html=True)
     st.caption("🎯 **PRIMARY SIGNAL:** Actual vs Expected Energy Consumption (Residual Engine)")
 
-    if len(anomaly_events) == 0:
+    if len(b_month) == 0:
+        st.info(f"ℹ️ No meter observations recorded in {selected_month} 2016 for anomaly detection.")
+    elif len(anomaly_events) == 0:
         st.markdown("<div class='alert-low'>✅ No residual anomalies detected this month</div>", unsafe_allow_html=True)
     else:
         # Display anomalies with residual metrics and severity
@@ -1014,25 +1081,28 @@ with col_left:
 with col_right:
     st.markdown("<div class='section-title'>🕐 Hourly Consumption Pattern</div>", unsafe_allow_html=True)
 
-    hourly_pattern = b_df.groupby('hour')['meter_reading'].median().reset_index()
-    fig2 = go.Figure()
-    fig2.add_trace(go.Scatter(
-        x=hourly_pattern['hour'], y=hourly_pattern['meter_reading'],
-        mode='lines+markers', fill='tozeroy',
-        fillcolor='rgba(37,99,235,0.15)',
-        line=dict(color='#3b82f6', width=2.5),
-        marker=dict(size=5)
-    ))
-    fig2.update_layout(
-        template='plotly_dark',
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(15,23,42,0.8)',
-        height=260,
-        margin=dict(l=10, r=10, t=10, b=10),
-        xaxis=dict(title='Hour of Day', gridcolor='#1e3a5f', tickvals=list(range(0,24,3))),
-        yaxis=dict(title='Median kWh', gridcolor='#1e3a5f')
-    )
-    st.plotly_chart(fig2, use_container_width=True)
+    if len(b_df) > 0:
+        hourly_pattern = b_df.groupby('hour')['meter_reading'].median().reset_index()
+        fig2 = go.Figure()
+        fig2.add_trace(go.Scatter(
+            x=hourly_pattern['hour'], y=hourly_pattern['meter_reading'],
+            mode='lines+markers', fill='tozeroy',
+            fillcolor='rgba(37,99,235,0.15)',
+            line=dict(color='#3b82f6', width=2.5),
+            marker=dict(size=5)
+        ))
+        fig2.update_layout(
+            template='plotly_dark',
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(15,23,42,0.8)',
+            height=260,
+            margin=dict(l=10, r=10, t=10, b=10),
+            xaxis=dict(title='Hour of Day', gridcolor='#1e3a5f', tickvals=list(range(0,24,3))),
+            yaxis=dict(title='Median kWh', gridcolor='#1e3a5f')
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+    else:
+        st.info("ℹ️ No historical readings available for hourly pattern.")
 
 # ─────────────────────────────────────────
 # PANEL 4 — EXPLAINABILITY & LOCAL SHAP ATTRIBUTION
@@ -1046,7 +1116,7 @@ with col_exp_left:
     st.markdown("#### 🌲 Global Model Feature Importance (Tree Gain)")
     st.caption("Global tree gain measures overall reduction of training loss achieved by splits across all LightGBM trees. *Note: Global gain is not local SHAP attribution.*")
 
-    if len(b_month_clean) > 0:
+    try:
         feat_imp = explainer.get_tree_feature_importance(importance_type='gain').tail(12).sort_values('importance', ascending=True)
 
         fig3 = go.Figure(go.Bar(
@@ -1068,6 +1138,8 @@ with col_exp_left:
             yaxis=dict(gridcolor='#1e3a5f')
         )
         st.plotly_chart(fig3, use_container_width=True)
+    except Exception as exc:
+        st.warning(f"⚠️ Could not compute feature importance: {exc}")
 
 with col_exp_right:
     st.markdown("#### ⚡ Local SHAP Explanation for Energy Reading")
@@ -1118,6 +1190,8 @@ with col_exp_right:
             st.caption("ℹ️ *Interpretation Note: SHAP value reflects local model attribution for the LightGBM prediction. It does NOT claim physical causality in the real building system.*")
         except Exception as exc:
             st.warning(f"⚠️ Could not compute local SHAP explanation: {exc}")
+    else:
+        st.info(f"ℹ️ Local SHAP instance explanation requires observed meter records for {selected_month} 2016.")
 
 # ─────────────────────────────────────────
 # PANEL 5 — MONTHLY SUMMARY

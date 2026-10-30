@@ -37,11 +37,11 @@ Twinergy provides a modular, decoupled, and verifiable software digital twin arc
 | **Recursive 24h Forecaster** | `src/models/forecasting.py` (`forecast_24h`) | **Operational** | Dynamic rolling lag buffer; zero future target leakage verified by unit tests. |
 | **Contextual Residual Anomaly Detector** | `src/models/anomaly.py` (`EnergyAnomalyAnalyzer`) | **Operational** | Relative deviation thresholds (Warning > 25%, Critical > 50%) and 5 category types. |
 | **Auxiliary Isolation Forest** | `src/models/anomaly.py` (`AnomalyDetector`) | **Operational** | 8-feature unsupervised model (`twinergy_isoforest.pkl`); Building 20 scope flagged. |
-| **Explainability Service** | `src/models/explainability.py` (`ModelExplainer`) | **Operational** | TreeSHAP additive decomposition ($E[\hat{y}] + \sum \phi_i$) and global tree gain. |
+| **Explainability Service** | `src/models/explainability.py` (`ModelExplainer`) | **Operational** | TreeSHAP additive decomposition (`ŷ = E[ŷ] + Σ φ_i`) and global tree gain. |
 | **Cost & Carbon Calculator** | `src/models/impact.py` (`EnergyImpactCalculator`) | **Operational** | Standardized ₹8.00/kWh tariff and 0.70 kg CO₂e/kWh grid carbon factor. |
 | **Digital Twin State Aggregator** | `src/models/twin_state.py` (`TwinState`) | **Operational** | Aggregated telemetry, forecast, impact, and status (`NORMAL`, `WARNING`, etc.). |
 | **What-If Simulation Engine** | `src/models/simulation.py` (`EnergySimulationEngine`) | **Operational** | 6 deterministic scenario types; strictly preserves baseline immutability. |
-| **Advisory Recommendation Engine** | `src/models/recommendations.py` (`RecommendationEngine`) | **Operational** | Priority-ordered advisory rules (`CRITICAL` $\rightarrow$ `INFO`) with data-backed evidence. |
+| **Advisory Recommendation Engine** | `src/models/recommendations.py` (`RecommendationEngine`) | **Operational** | Priority-ordered advisory rules (`CRITICAL` → `INFO`) with data-backed evidence. |
 | **FastAPI REST API** | `src/api/` (`main.py`, `routes/`, `schemas.py`) | **Operational** | 8 production endpoints, Pydantic v2 validation, explicit UTF-8 response headers. |
 | **React Web Frontend** | `frontend/` (React 19 + Vite) | **Operational** | 8 modular panels, custom responsive SVG charts, AbortController request cancellation. |
 | **Legacy Streamlit Dashboard** | `app.py` | **Operational** | 10-panel vertical diagnostic explorer for local offline inspection. |
@@ -94,22 +94,24 @@ flowchart TD
 ## 4. Implemented Feature Details
 
 ### 4.1 Recursive 24-Hour Forward Forecasting
-- **Underlying Booster:** LightGBM Regressor (`twinergy_lgbm.pkl`) trained on log-transformed energy target $\text{meter\_reading\_log} = \ln(1 + \text{meter\_reading})$.
-- **Zero Target Leakage Multi-Step Recursion:** The forecaster dynamically updates an autoregressive rolling buffer across horizons $t+1 \dots t+24$. As predictions are made on the log scale, they are appended to the lag buffer to compute subsequent autoregressive lags (`lag_1hr`, `lag_24hr`, `lag_168hr`) and rolling statistics (`rolling_mean_6hr`, `rolling_mean_24hr`, `rolling_std_24hr`, `rolling_mean_168hr`). Future actual energy readings are strictly excluded.
-- **Physical Inversion:** Predictions are inverted back to physical engineering units ($\text{kWh}$) via $\text{expm1}$ and lower-bounded at $0.0$.
+- **Underlying Booster:** LightGBM Regressor (`twinergy_lgbm.pkl`) trained on log-transformed energy target `meter_reading_log = ln(1 + meter_reading)`.
+- **Zero Target Leakage Multi-Step Recursion:** The forecaster dynamically updates an autoregressive rolling buffer across horizons `t+1` to `t+24`. As predictions are made on the log scale, they are appended to the lag buffer to compute subsequent autoregressive lags (`lag_1hr`, `lag_24hr`, `lag_168hr`) and rolling statistics (`rolling_mean_6hr`, `rolling_mean_24hr`, `rolling_std_24hr`, `rolling_mean_168hr`). Future actual energy readings are strictly excluded.
+- **Physical Inversion:** Predictions are inverted back to physical engineering units (kWh) via `expm1` and lower-bounded at `0.0`.
 
 ### 4.2 Contextual Residual Anomaly Detection & Classification
-- **Primary Residual Engine:** Evaluates observed consumption ($y_t$) against the expected model baseline ($\hat{y}_t$):
-  $$\text{Residual: } e_t = y_t - \hat{y}_t \qquad \text{Deviation Ratio: } \delta_t = \frac{e_t}{\max(\hat{y}_t, \epsilon)}$$
-  - `NORMAL`: $|\delta_t| \le 25\%$
-  - `WARNING`: $25\% < |\delta_t| \le 50\%$
-  - `CRITICAL`: $|\delta_t| > 50\%$
+- **Primary Residual Engine:** Evaluates observed consumption (`y_t`) against expected model baseline (`ŷ_t`):
+  - Residual formula: `e_t = y_t - ŷ_t`
+  - Deviation ratio: `δ_t = e_t / max(ŷ_t, ε)`
+  - Classification thresholds:
+    - `NORMAL`: `|δ_t| ≤ 25%`
+    - `WARNING`: `25% < |δ_t| ≤ 50%`
+    - `CRITICAL`: `|δ_t| > 50%`
 - **Deterministic 5-Tier Category Classifier:** Classifies anomalies into `NORMAL`, `LOW_DEMAND`, `RAPID_SPIKE`, `PERSISTENT_HIGH`, or `HIGH_DEMAND` with human-readable diagnostic reasons.
 - **Auxiliary Isolation Forest Signal:** Evaluates multidimensional density over 8 features (`twinergy_isoforest.pkl`). **Scope Disclosure:** Trained strictly on Building 20; cross-building flags are uncalibrated and flagged as auxiliary evidence.
 
 ### 4.3 TreeSHAP Explainability vs. Tree Split Gain
 - **Local Additive TreeSHAP:** Decomposes individual predictions into additive feature attributions:
-  $$\hat{y} = E[\hat{y}] + \sum_{i=1}^{M} \phi_i$$
+  - Additive attribution: `ŷ = E[ŷ] + Σ φ_i`
 - **Safety Bounding:** Capped at a maximum sample size (default 100 rows) to prevent CPU/memory exhaustion.
 - **Methodological Distinction:** Tree split gain (total loss reduction across splits) is explicitly decoupled from local SHAP attribution. Explanations reflect mathematical model feature weighting, not physical real-world causality.
 
@@ -129,16 +131,16 @@ flowchart TD
 
 ### 4.6 What-If Demand Scenario Simulation
 - Simulates 6 deterministic operational adjustments on the 24-hour baseline forecast:
-  1. `ENERGY_MULTIPLIER`: Uniform proportional scaling (e.g., $1.15$ for +15% surge).
-  2. `ENERGY_REDUCTION`: Fractional load curtailment (e.g., $0.10$ for 10% load shed).
-  3. `FIXED_KWH_ADDITION`: Constant baseline shift (e.g., $+20.0\text{ kWh}$ for baseload/EV charging).
+  1. `ENERGY_MULTIPLIER`: Uniform proportional scaling (e.g., `1.15` for +15% surge).
+  2. `ENERGY_REDUCTION`: Fractional load curtailment (e.g., `0.10` for 10% load shed).
+  3. `FIXED_KWH_ADDITION`: Constant baseline shift (e.g., `+20.0 kWh` for baseload/EV charging).
   4. `OCCUPANCY_CHANGE`: Business-hours demand modulation using occupancy proxy heuristics.
-  5. `TEMPERATURE_CHANGE`: Weather sensitivity adjustment ($\sim 2.5\%$ demand shift per $+1^\circ\text{C}$).
-  6. `EFFICIENCY_MULTIPLIER`: Equipment retrofit efficiency gain (e.g., $0.85$ for 15% efficiency gain).
+  5. `TEMPERATURE_CHANGE`: Weather sensitivity adjustment (~2.5% demand shift per +1°C).
+  6. `EFFICIENCY_MULTIPLIER`: Equipment retrofit efficiency gain (e.g., `0.85` for 15% efficiency gain).
 - **Baseline Immutability:** All simulations operate strictly on copies of forecast data in memory, ensuring zero mutation of baseline forecasts or trained models.
 
 ### 4.7 Advisory Recommendation Engine
-- Generates priority-ordered advisory efficiency guidelines (`CRITICAL` $\rightarrow$ `HIGH` $\rightarrow$ `MEDIUM` $\rightarrow$ `LOW` $\rightarrow$ `INFO`).
+- Generates priority-ordered advisory efficiency guidelines (`CRITICAL` → `HIGH` → `MEDIUM` → `LOW` → `INFO`).
 - Categories: `ENERGY`, `ANOMALY`, `COST`, `CARBON`, `OPERATIONS`.
 - Non-causal phrasing: Recommendations use advisory verbs ("Review", "Investigate", "Consider") and cite specific numerical evidence from active TwinState and simulation results.
 
@@ -167,7 +169,7 @@ flowchart TD
 ## 6. Machine Learning Model Methodology
 
 ### LightGBM Energy Forecaster (`twinergy_lgbm.pkl`)
-- **Objective:** Regression (`root_mean_squared_error`) on target $\text{meter\_reading\_log} = \ln(1 + \text{meter\_reading})$.
+- **Objective:** Regression (`root_mean_squared_error`) on target `meter_reading_log = ln(1 + meter_reading)`.
 - **Feature Contract (22 Features):**
   1. `hour`, `dayofweek`, `month`, `dayofyear`, `is_weekend`, `is_business_hours`
   2. `hour_sin`, `hour_cos`, `month_sin`, `month_cos` (Cyclic trigonometric encodings)
@@ -454,7 +456,7 @@ npm run build
 3. **Model Attribution vs. Physical Causality:**
    TreeSHAP explanations describe internal LightGBM decision tree feature attributions. They do not prove real-world physical causation.
 4. **Tariff and Grid Carbon Assumptions:**
-   Baseline financial tariffs (₹8.00/kWh) and grid carbon factors ($0.70\text{ kg CO}_2\text{e/kWh}$) are standardized demonstration parameters, not measured real-time utility billing or dynamic marginal grid emissions.
+   Baseline financial tariffs (₹8.00/kWh) and grid carbon factors (0.70 kg CO₂e/kWh) are standardized demonstration parameters, not measured real-time utility billing or dynamic marginal grid emissions.
 5. **Isolation Forest Model Scope:**
    `twinergy_isoforest.pkl` was trained exclusively on **Building 20**. It is preserved strictly as secondary auxiliary evidence.
 6. **Non-Mutation of Historical Baselines:**

@@ -1,4 +1,4 @@
-"""Feature engineering pipeline for Twinergy 2.0.
+"""Feature engineering pipeline for Twinergy.
 
 Provides modular, reproducible functions to compute calendar features, autoregressive lags,
 rolling statistics, weather interactions, and the heuristic occupancy proxy without target leakage.

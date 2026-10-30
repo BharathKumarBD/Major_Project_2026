@@ -1,4 +1,4 @@
-"""Comprehensive test suite for Twinergy 2.0 anomaly foundation.
+"""Comprehensive test suite for Twinergy anomaly foundation.
 
 Verifies:
 1. Normal consumption (residual ~ 0, severity = NORMAL, is_anomaly = 0)

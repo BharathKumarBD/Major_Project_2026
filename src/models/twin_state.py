@@ -1,4 +1,4 @@
-"""Twin State data model and aggregation service layer for Twinergy 2.0.
+"""Twin State data model and aggregation service layer for Twinergy.
 
 Provides a clean, structured software representation of a building's current energy state
 and derived intelligence at a specific reference timestamp.

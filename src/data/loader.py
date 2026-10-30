@@ -1,4 +1,4 @@
-"""Data loader for Twinergy 2.0.
+"""Data loader for Twinergy.
 
 Provides efficient, configurable access to the cleaned dataset (Parquet and CSV),
 supporting DuckDB predicate pushdown and pandas DataFrame output.

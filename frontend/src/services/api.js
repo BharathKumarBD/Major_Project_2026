@@ -1,5 +1,5 @@
 /**
- * Centralized API Client for Twinergy 2.0 REST API.
+ * Centralized API Client for Twinergy REST API.
  *
  * Consumes the FastAPI backend endpoints with:
  * - Environment-configured base URL (VITE_API_BASE_URL with fallback to http://127.0.0.1:8000)

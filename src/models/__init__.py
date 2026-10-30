@@ -1,4 +1,4 @@
-"""Twinergy 2.0 Models Package.
+"""Twinergy Models Package.
 
 Provides encapsulated services for:
 - LightGBM energy forecasting (preserving 22-feature contract)

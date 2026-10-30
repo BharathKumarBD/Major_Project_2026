@@ -1,6 +1,6 @@
-# Twinergy 2.0 — REST API Documentation (Step 11A)
+# Twinergy — REST API Documentation (Step 11A)
 
-The Twinergy 2.0 API is a clean, read-only FastAPI backend layer that exposes existing forecasting, anomaly detection, building digital twin state representations, cost/carbon impact calculations, rule-based recommendations, and what-if energy demand simulations through RESTful HTTP endpoints.
+The Twinergy API is a clean, read-only FastAPI backend layer that exposes existing forecasting, anomaly detection, building digital twin state representations, cost/carbon impact calculations, rule-based recommendations, and what-if energy demand simulations through RESTful HTTP endpoints.
 
 ---
 
@@ -58,7 +58,7 @@ major/bin/pytest tests/
   ```json
   {
     "status": "healthy",
-    "service": "Twinergy 2.0 API",
+    "service": "Twinergy API",
     "version": "2.0.0"
   }
   ```

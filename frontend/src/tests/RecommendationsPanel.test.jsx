@@ -72,4 +72,26 @@ describe('RecommendationsPanel Component', () => {
     render(<RecommendationsPanel recommendationsData={emptyRecs} />)
     expect(screen.getByText(/no active recommendations/i)).toBeInTheDocument()
   })
+
+  it('sanitizes corrupted encoding artifacts in evidence strings to clean rupee symbol', () => {
+    const corruptedRecs = {
+      building_id: 0,
+      meter: 0,
+      total_count: 1,
+      recommendations: [
+        {
+          recommendation_id: 'REC-COST-999',
+          priority: 'MEDIUM',
+          category: 'COST',
+          title: 'High Cost Alert',
+          action: 'Review tariff consumption.',
+          reason: 'Cost exceeds baseline.',
+          evidence: 'Projected cost is â¹61,796.03, exceeding threshold.',
+        },
+      ],
+    }
+
+    render(<RecommendationsPanel recommendationsData={corruptedRecs} />)
+    expect(screen.getByText(/Projected cost is ₹61,796.03, exceeding threshold/i)).toBeInTheDocument()
+  })
 })

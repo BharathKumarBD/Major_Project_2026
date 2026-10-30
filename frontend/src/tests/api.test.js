@@ -17,7 +17,7 @@ describe('API Service Client', () => {
   })
 
   it('getHealth calls /health endpoint', async () => {
-    const mockHealth = { status: 'healthy', service: 'Twinergy 2.0 API', version: '2.0.0' }
+    const mockHealth = { status: 'healthy', service: 'Twinergy API', version: '2.0.0' }
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => mockHealth,

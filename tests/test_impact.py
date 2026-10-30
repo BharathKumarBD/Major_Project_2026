@@ -1,4 +1,4 @@
-"""Comprehensive test suite for Twinergy 2.0 EnergyImpactCalculator service.
+"""Comprehensive test suite for Twinergy EnergyImpactCalculator service.
 
 Verifies:
 1. Default tariff calculation (₹8.0/kWh)

@@ -1,1 +1,1 @@
-"""API Routes package for Twinergy 2.0."""
+"""API Routes package for Twinergy."""

@@ -1,4 +1,4 @@
-"""Comprehensive test suite for Twinergy 2.0 RecommendationEngine service.
+"""Comprehensive test suite for Twinergy RecommendationEngine service.
 
 Verifies:
 1. Critical anomaly recommendation generation

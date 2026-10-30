@@ -1,4 +1,4 @@
-# Twinergy 2.0 — Data Contract & Foundation Specification
+# Twinergy — Data Contract & Foundation Specification
 
 ## 1. Overview & Dataset Identity
 

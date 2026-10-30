@@ -1,4 +1,4 @@
-"""Twinergy 2.0 API Package.
+"""Twinergy API Package.
 
 Read-only REST API backend exposing forecasting, anomaly detection,
 twin state representations, cost/carbon impact, recommendations, and

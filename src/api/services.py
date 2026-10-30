@@ -1,4 +1,4 @@
-"""Service container and helper utilities for Twinergy 2.0 API.
+"""Service container and helper utilities for Twinergy API.
 
 Manages singleton service instances, dependency injection providers,
 and sanitization of internal filesystem paths from error responses.

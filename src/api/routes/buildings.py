@@ -1,4 +1,4 @@
-"""Building digital twin routes for Twinergy 2.0 API.
+"""Building digital twin routes for Twinergy API.
 
 Provides endpoints for:
 - GET /buildings

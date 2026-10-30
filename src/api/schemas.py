@@ -1,4 +1,4 @@
-"""Pydantic data schemas for Twinergy 2.0 REST API.
+"""Pydantic data schemas for Twinergy REST API.
 
 Provides structured request and response models with strict validation,
 type safety, and clear schema documentation for OpenAPI/Swagger UI.
@@ -17,13 +17,13 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class HealthResponse(BaseModel):
     """API health status model."""
     status: str = Field("healthy", description="Current service health status")
-    service: str = Field("Twinergy 2.0 API", description="Name of the API service")
+    service: str = Field("Twinergy API", description="Name of the API service")
     version: str = Field("2.0.0", description="API version")
 
     model_config = ConfigDict(json_schema_extra={
         "example": {
             "status": "healthy",
-            "service": "Twinergy 2.0 API",
+            "service": "Twinergy API",
             "version": "2.0.0"
         }
     })

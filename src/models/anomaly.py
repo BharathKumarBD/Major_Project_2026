@@ -1,4 +1,4 @@
-"""Anomaly detection and deterministic explainable classification service for Twinergy 2.0.
+"""Anomaly detection and deterministic explainable classification service for Twinergy.
 
 Provides:
 1. Primary Residual-Based Energy Anomaly Analysis & Classification (EnergyAnomalyAnalyzer):

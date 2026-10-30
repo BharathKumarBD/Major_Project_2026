@@ -1,4 +1,4 @@
-"""Explainability service for Twinergy 2.0.
+"""Explainability service for Twinergy.
 
 Provides:
 1. Global tree-based feature importance from LightGBM (gain / split frequency).

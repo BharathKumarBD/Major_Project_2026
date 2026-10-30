@@ -1,4 +1,4 @@
-"""Comprehensive test suite for Twinergy 2.0 FastAPI Backend Layer (Step 11A).
+"""Comprehensive test suite for Twinergy FastAPI Backend Layer.
 
 Verifies:
 1. Health endpoint (GET /health) returns 200 and healthy status.
@@ -56,7 +56,7 @@ def test_health_endpoint(client):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
-    assert data["service"] == "Twinergy 2.0 API"
+    assert data["service"] == "Twinergy API"
     assert "version" in data
 
 

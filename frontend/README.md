@@ -1,6 +1,6 @@
-# Twinergy 2.0 — Frontend Dashboard (Step 11B)
+# Twinergy — Frontend Dashboard (Step 11B)
 
-A modern, responsive React web dashboard for **Twinergy 2.0 Digital Twin Energy Analytics**, interfacing directly with the FastAPI REST API.
+A modern, responsive React web dashboard for **Twinergy Digital Twin Energy Analytics**, interfacing directly with the FastAPI REST API.
 
 ---
 
@@ -16,7 +16,7 @@ A modern, responsive React web dashboard for **Twinergy 2.0 Digital Twin Energy 
 
 - **Node.js**: `v18.0.0` or higher (tested on `v22+`)
 - **npm**: `v9.0.0` or higher
-- **Backend API**: Running Twinergy 2.0 FastAPI backend on `http://127.0.0.1:8000` (Python 3.10+ virtual environment)
+- **Backend API**: Running Twinergy FastAPI backend on `http://127.0.0.1:8000` (Python 3.10+ virtual environment)
 
 ---
 

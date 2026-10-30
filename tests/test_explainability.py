@@ -1,4 +1,4 @@
-"""Focused test suite for Twinergy 2.0 SHAP explainability service.
+"""Focused test suite for Twinergy SHAP explainability service.
 
 Verifies:
 1. Local SHAP output exists for an instance

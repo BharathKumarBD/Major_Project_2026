@@ -1,4 +1,4 @@
-"""Smoke tests for Twinergy 2.0 Data Foundation and Model Compatibility."""
+"""Smoke tests for Twinergy Data Foundation and Model Compatibility."""
 
 import pickle
 import numpy as np

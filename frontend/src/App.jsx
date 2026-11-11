@@ -369,7 +369,7 @@ export default function App() {
       >
         <div style={{ maxWidth: '1440px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <strong>Twinergy 2.0</strong> · AI-Driven Digital Twin for Building Energy Intelligence
+            <strong>Twinergy</strong> · AI-Driven Digital Twin for Building Energy Intelligence
           </div>
           <div style={{ display: 'flex', gap: 16 }}>
             <a

@@ -1,4 +1,4 @@
-"""Data preparation script for Twinergy 2.0.
+"""Data preparation script for Twinergy.
 
 Converts raw/cleaned CSV datasets into optimized columnar Parquet format
 and creates sample development datasets for fast local development and testing.
@@ -85,7 +85,7 @@ def create_sample_dataset(
 
 def main():
     root = get_default_project_root()
-    parser = argparse.ArgumentParser(description="Twinergy 2.0 Data Preparation Pipeline")
+    parser = argparse.ArgumentParser(description="Twinergy Data Preparation Pipeline")
     parser.add_argument(
         "--csv",
         type=Path,

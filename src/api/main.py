@@ -1,4 +1,4 @@
-"""Twinergy 2.0 FastAPI Application Entry Point.
+"""Twinergy FastAPI Application Entry Point.
 
 Clean, read-only REST API backend exposing forecasting, anomaly detection,
 building twin state, cost/carbon impact, recommendations, and what-if simulation.
@@ -29,15 +29,20 @@ logger = logging.getLogger("twinergy.api")
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application startup and shutdown lifespan handler."""
-    logger.info("Starting Twinergy 2.0 API server...")
+    logger.info("Starting Twinergy API server...")
     yield
-    logger.info("Shutting down Twinergy 2.0 API server...")
+    logger.info("Shutting down Twinergy API server...")
+
+
+class UTF8JSONResponse(JSONResponse):
+    """Custom JSONResponse enforcing UTF-8 charset in Content-Type header."""
+    media_type = "application/json; charset=utf-8"
 
 
 app = FastAPI(
-    title="Twinergy 2.0 API",
+    title="Twinergy API",
     description=(
-        "Clean, read-only REST API backend for Twinergy 2.0. "
+        "Clean, read-only REST API backend for Twinergy. "
         "Exposes building energy digital twin state, recursive 24-hour forecasting, "
         "explainable anomaly detection, cost and carbon impacts, rule-based recommendations, "
         "and what-if demand simulation."
@@ -46,6 +51,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    default_response_class=UTF8JSONResponse,
     lifespan=lifespan,
 )
 
@@ -67,7 +73,7 @@ app.include_router(buildings.router)
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     """Handle standard HTTPExceptions cleanly without leaking internal paths."""
-    return JSONResponse(
+    return UTF8JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
     )
@@ -78,7 +84,7 @@ async def validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
     """Handle Pydantic request schema validation errors."""
-    return JSONResponse(
+    return UTF8JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={"detail": jsonable_encoder(exc.errors())},
     )
@@ -88,7 +94,7 @@ async def validation_exception_handler(
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Catch-all unhandled exception handler that suppresses stack traces and internal paths."""
     logger.error("Unhandled internal server error on %s %s: %s", request.method, request.url.path, exc, exc_info=True)
-    return JSONResponse(
+    return UTF8JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "An internal server error occurred while processing the request."},
     )

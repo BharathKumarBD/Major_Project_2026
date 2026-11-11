@@ -1,4 +1,4 @@
-"""Energy Impact Calculator service for Twinergy 2.0.
+"""Energy Impact Calculator service for Twinergy.
 
 Provides cost and carbon emission forecasting service layer based on the
 validated 24-hour energy forecast (predicted_kwh).

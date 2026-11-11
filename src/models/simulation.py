@@ -1,4 +1,4 @@
-"""What-If Simulation Engine for Twinergy 2.0.
+"""What-If Simulation Engine for Twinergy.
 
 Provides deterministic simulation of 24-hour energy demand scenarios
 (ENERGY_MULTIPLIER, ENERGY_REDUCTION, FIXED_KWH_ADDITION) and calculates

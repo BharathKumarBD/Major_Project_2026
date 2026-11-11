@@ -1,4 +1,4 @@
-"""Comprehensive test suite for Twinergy 2.0 24-hour recursive forecasting.
+"""Comprehensive test suite for Twinergy 24-hour recursive forecasting.
 
 Verifies:
 - Exact 24 forecast rows

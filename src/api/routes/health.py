@@ -1,4 +1,4 @@
-"""Health check route for Twinergy 2.0 API.
+"""Health check route for Twinergy API.
 
 Provides a fast, lightweight liveness and readiness probe that does not
 require reading the dataset or initializing heavy model artifacts.
@@ -14,12 +14,12 @@ router = APIRouter(tags=["Health"])
     "/health",
     response_model=HealthResponse,
     summary="Service Health Check",
-    description="Returns the current operational status and version of the Twinergy 2.0 API service.",
+    description="Returns the current operational status and version of the Twinergy API service.",
 )
 def get_health() -> HealthResponse:
     """Fast service health check without dataset loading."""
     return HealthResponse(
         status="healthy",
-        service="Twinergy 2.0 API",
+        service="Twinergy API",
         version="2.0.0",
     )

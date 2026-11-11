@@ -1,4 +1,4 @@
-"""Data schema and contract definitions for Twinergy 2.0.
+"""Data schema and contract definitions for Twinergy.
 
 Defines column names, data types, model feature contracts, and metadata
 for the ASHRAE Great Energy Predictor III cleaned dataset.

@@ -1,11 +1,11 @@
-"""Forecasting service for Twinergy 2.0.
+"""Forecasting service for Twinergy.
 
 Wraps the trained LightGBM model artifact (twinergy_lgbm.pkl), preserving the exact
 22-feature input contract and providing predictions in both log and physical (kWh) units.
 
 NOTE: This service implements the existing 1-step-ahead nowcast interface using the
 pre-engineered lag/rolling feature contract. True recursive multi-step forecasting
-is deliberately deferred to subsequent steps.
+is fully implemented in forecast_24h with dynamic autoregressive lag updates and zero target leakage.
 """
 
 from __future__ import annotations

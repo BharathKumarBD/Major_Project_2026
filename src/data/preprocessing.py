@@ -1,4 +1,4 @@
-"""Data preprocessing pipeline for Twinergy 2.0.
+"""Data preprocessing pipeline for Twinergy.
 
 Provides modular, reproducible functions to clean raw ASHRAE energy and weather data,
 handle missing values, filter physical outliers, and align data contracts.

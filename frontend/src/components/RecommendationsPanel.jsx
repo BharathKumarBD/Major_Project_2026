@@ -28,6 +28,11 @@ export default function RecommendationsPanel({ recommendationsData }) {
     }
   }
 
+  const cleanEvidence = (text) => {
+    if (!text || typeof text !== 'string') return text
+    return text.replace(/â[‚\u201a]?¹/g, '₹')
+  }
+
   const getPriorityBadge = (priority) => {
     const p = String(priority).toUpperCase()
     switch (p) {
@@ -146,7 +151,7 @@ export default function RecommendationsPanel({ recommendationsData }) {
                       marginTop: 6,
                     }}
                   >
-                    <strong>Data Evidence:</strong> {rec.evidence}
+                    <strong>Data Evidence:</strong> {cleanEvidence(rec.evidence)}
                   </div>
                 )}
               </div>

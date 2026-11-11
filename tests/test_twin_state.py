@@ -1,4 +1,4 @@
-"""Comprehensive test suite for Twinergy 2.0 TwinState data model and service layer.
+"""Comprehensive test suite for Twinergy TwinState data model and service layer.
 
 Verifies:
 1. Basic TwinState creation

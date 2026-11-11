@@ -1,4 +1,4 @@
-"""Deterministic Recommendation Engine for Twinergy 2.0.
+"""Deterministic Recommendation Engine for Twinergy.
 
 Provides explainable, non-causal energy management recommendations derived
 from TwinState software representations, anomaly classifications, forecasts,
@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
@@ -382,7 +382,7 @@ class RecommendationEngine:
         return {
             "recommendations": [r.to_dict() for r in recs],
             "total_count": len(recs),
-            "generated_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
 
 

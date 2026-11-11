@@ -1,4 +1,4 @@
-"""Comprehensive test suite for Twinergy 2.0 EnergySimulationEngine what-if simulation service.
+"""Comprehensive test suite for Twinergy EnergySimulationEngine what-if simulation service.
 
 Verifies:
 1. +10% energy multiplier scenario

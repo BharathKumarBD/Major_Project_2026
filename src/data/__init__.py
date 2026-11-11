@@ -1,4 +1,4 @@
-"""Twinergy 2.0 Data Foundation Package.
+"""Twinergy Data Foundation Package.
 
 Provides schema definitions, high-performance data loading (Parquet + DuckDB),
 and automated data contract validation.

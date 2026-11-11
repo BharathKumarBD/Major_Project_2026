@@ -1,4 +1,4 @@
-"""Automated dataset validation suite for Twinergy 2.0.
+"""Automated dataset validation suite for Twinergy.
 
 Validates column presence, types, value constraints, target semantics,
 model feature contracts (LightGBM and Isolation Forest), missing values,
@@ -59,7 +59,7 @@ class ValidationSuiteResult:
     def print_report(self) -> None:
         """Print a formatted validation report to stdout."""
         print("=" * 70)
-        print("       TWINERGY 2.0 -- DATA FOUNDATION VALIDATION REPORT")
+        print("       TWINERGY -- DATA FOUNDATION VALIDATION REPORT")
         print("=" * 70)
         print(f"Target Dataset : {self.dataset_path}")
         print(f"Overall Status : {'[PASS] PASSED' if self.passed else '[FAIL] FAILED'}")

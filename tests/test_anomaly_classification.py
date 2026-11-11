@@ -1,4 +1,4 @@
-"""Comprehensive test suite for Twinergy 2.0 deterministic explainable anomaly classification.
+"""Comprehensive test suite for Twinergy deterministic explainable anomaly classification.
 
 Verifies:
 1. NORMAL classification (severity <= 0.25)
